@@ -1,8 +1,8 @@
 pipeline {
     agent any
     environment {
-        //be sure to replace "emuser" with your own Docker Hub username
-        DOCKER_IMAGE_NAME = "emuser/train-schedule"
+        //be sure to replace "willbla" with your own Docker Hub username
+        DOCKER_IMAGE_NAME = "willbla/train-schedule"
         CANARY_REPLICAS = 0
     }
     stages {
@@ -43,6 +43,9 @@ pipeline {
             when {
                 branch 'master'
             }
+            environment { 
+                CANARY_REPLICAS = 1
+            }
             steps {
                 kubernetesDeploy(
                     kubeconfigId: 'kubeconfig',
@@ -51,8 +54,7 @@ pipeline {
                 )
             }
         }
-       
-           stage('SmokeTest') {
+        stage('SmokeTest') {
             when {
                 branch 'master'
             }
@@ -60,7 +62,7 @@ pipeline {
                 script {
                     sleep (time: 5)
                     def response = httpRequest (
-                        url: "http://$KUBE_MASTER_IP:8082/",
+                        url: "http://$KUBE_MASTER_IP:8081/",
                         timeout: 30
                     )
                     if (response.status != 200) {
@@ -68,12 +70,12 @@ pipeline {
                     }
                 }
             }
-        }      
+        }
         stage('DeployToProduction') {
             when {
                 branch 'master'
             }
-            steps {            
+            steps {
                 milestone(1)
                 kubernetesDeploy(
                     kubeconfigId: 'kubeconfig',
@@ -85,11 +87,11 @@ pipeline {
     }
     post {
         cleanup {
-                  kubernetesDeploy(
-                    kubeconfigId: 'kubeconfig',
-                    configs: 'train-schedule-kube-canary.yml',
-                    enableConfigSubstitution: true
-                )
+            kubernetesDeploy (
+                kubeconfigId: 'kubeconfig',
+                configs: 'train-schedule-kube-canary.yml',
+                enableConfigSubstitution: true
+            )
         }
     }
 }
